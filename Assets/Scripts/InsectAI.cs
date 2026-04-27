@@ -1,34 +1,42 @@
 using UnityEngine;
 using UnityEngine.AI;
+
 public enum InsectState
 {
-    Idle,           // Inactivo / Esperando
-    Walking,        // Andando / Patrullando
-    Interacting,    // Interactuando (comiendo, construyendo)
-    Attacking,      // Atacando a otro insecto
-    Carrying,       // Cargando comida / Recursos
-    Grabbed,        // Siendo agarrado por el jugador (Realidad Mixta)
-    Dead            // Muerto
+    Idle,
+    Walking,
+    Interacting,
+    Attacking,
+    Carrying,
+    Grabbed,
+    Dead
 }
+
 [RequireComponent(typeof(NavMeshAgent))]
 public class InsectAI : MonoBehaviour
 {
     [Header("Datos")]
-    public InsectDataSO data;         // arrastra el SO en el Inspector
-    public AntDataSO antData;         // solo si es hormiga tuya; null si es enemigo
+    public InsectDataSO data;
+    public AntDataSO antData;
 
     [Header("Estado")]
     public InsectState currentState = InsectState.Idle;
 
-    // Referencias internas
     NavMeshAgent agent;
-    Animator anim;
-    float stateTimer;
-    Transform target;        // enemigo u objetivo actual
-    GameObject carriedItem;  // recurso que lleva encima
 
-    // Cache del nido (se busca una sola vez)
+    [Header("Animator")]
+    public Animator anim;
+    public GameObject mouthPoint;
+
+    float stateTimer;
+    Transform target;
+    GameObject carriedItem;
+
     static Transform nestTransform;
+
+    // true si es enemigo (no tiene antData)
+    bool isEnemy => antData == null;
+
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -37,50 +45,33 @@ public class InsectAI : MonoBehaviour
         if (nestTransform == null)
             nestTransform = GameObject.FindGameObjectWithTag("Nest")?.transform;
 
-        // Aplicar stats del SO al agente
         if (data != null)
-        {
             agent.speed = data.speed;
-        }
     }
-    
+
+    void Start() => currentHp = data != null ? data.hp : 100f;
+
     void Update()
     {
         stateTimer += Time.deltaTime;
-        // La máquina de estados principal
         switch (currentState)
         {
-            case InsectState.Idle:
-                UpdateIdle();
-                break;
-            case InsectState.Walking:
-                UpdateWalking();
-                break;
-            case InsectState.Interacting:
-                UpdateInteracting();
-                break;
-            case InsectState.Attacking:
-                UpdateAttacking();
-                break;
-            case InsectState.Carrying:
-                UpdateCarrying();
-                break;
-            case InsectState.Grabbed:
-                UpdateGrabbed();
-                break;
-            case InsectState.Dead:
-                UpdateDead();
-                break;
+            case InsectState.Idle:        UpdateIdle();        break;
+            case InsectState.Walking:     UpdateWalking();     break;
+            case InsectState.Interacting: UpdateInteracting(); break;
+            case InsectState.Attacking:   UpdateAttacking();   break;
+            case InsectState.Carrying:    UpdateCarrying();    break;
+            case InsectState.Grabbed:     UpdateGrabbed();     break;
+            case InsectState.Dead:        UpdateDead();        break;
         }
     }
 
-     // ───────────────────────────────────────────
+    // ───────────────────────────────────────────
     // ESTADOS
     // ───────────────────────────────────────────
 
     void UpdateIdle()
     {
-        // Espera un momento y luego patrulla, pero primero comprueba amenazas
         if (ScanForEnemy(out Transform enemy))
         {
             target = enemy;
@@ -90,15 +81,13 @@ public class InsectAI : MonoBehaviour
 
         if (stateTimer > data.idleWaitTime)
         {
-            Vector3 randomPoint = GetRandomNavPoint(8f);
-            agent.SetDestination(randomPoint);
+            agent.SetDestination(GetRandomNavPoint(data.aggroRange));
             ChangeState(InsectState.Walking);
         }
     }
 
     void UpdateWalking()
     {
-        // Sigue comprobando enemigos mientras camina
         if (ScanForEnemy(out Transform enemy))
         {
             target = enemy;
@@ -107,27 +96,31 @@ public class InsectAI : MonoBehaviour
             return;
         }
 
-        // Llegó al destino
+        // Si ya vamos hacia comida, comprobar si llegamos
+        if (target != null && target.CompareTag("Food"))
+        {
+            if (Vector3.Distance(transform.position, target.position) < 0.5f)
+            {
+                carriedItem = target.gameObject;
+                carriedItem.transform.SetParent(transform);
+                carriedItem.transform.position = mouthPoint.transform.position;
+                target = null;
+                ChangeState(InsectState.Carrying);
+            }
+            return;
+        }
+
+        // Llegó al destino de patrulla
         if (!agent.pathPending && agent.remainingDistance < 0.3f)
         {
-            // Si es hormiga con alto forageWeight, busca comida al llegar
-            if (antData != null && antData.forageWeight > 0.5f)
+            if (!isEnemy && antData.forageWeight > 0.5f)
             {
-                GameObject food = FindNearbyFood(5f);
+                GameObject food = FindNearbyFood(data.aggroRange);
                 if (food != null)
                 {
                     target = food.transform;
                     agent.SetDestination(target.position);
-                    // Al llegar recogemos en UpdateWalking el siguiente frame;
-                    // usamos distancia para saber que llegamos al recurso
-                    if (Vector3.Distance(transform.position, target.position) < 0.5f)
-                    {
-                        carriedItem = food;
-                        food.transform.SetParent(transform);
-                        food.transform.localPosition = Vector3.up * 0.3f;
-                        ChangeState(InsectState.Carrying);
-                        return;
-                    }
+                    return;
                 }
             }
 
@@ -137,7 +130,6 @@ public class InsectAI : MonoBehaviour
 
     void UpdateInteracting()
     {
-        // Animación de interacción; dura interactTime segundos y vuelve a Idle
         if (stateTimer > data.interactTime)
             ChangeState(InsectState.Idle);
     }
@@ -150,8 +142,8 @@ public class InsectAI : MonoBehaviour
             return;
         }
 
-        // Huir si HP baja (solo hormigas con hpFleeThreshold configurado)
-        if (antData != null && GetHpPercent() < antData.hpFleeThreshold)
+        // Solo las hormigas aliadas huyen
+        if (!isEnemy && GetHpPercent() < antData.hpFleeThreshold)
         {
             agent.SetDestination(nestTransform.position);
             ChangeState(InsectState.Walking);
@@ -162,12 +154,10 @@ public class InsectAI : MonoBehaviour
 
         if (dist > data.attackRange)
         {
-            // Todavía lejos: acercarse
             agent.SetDestination(target.position);
         }
         else
         {
-            // En rango: golpear en cada ciclo de ataque
             agent.ResetPath();
             if (stateTimer > data.attackCooldown)
             {
@@ -189,44 +179,34 @@ public class InsectAI : MonoBehaviour
 
         if (Vector3.Distance(transform.position, nestTransform.position) < 1f)
         {
-            // Depositar recurso en el nido
             Destroy(carriedItem);
             carriedItem = null;
-            // Aquí podrías llamar a NestManager.AddFood(data.carryAmount)
             ChangeState(InsectState.Idle);
         }
     }
 
-    void UpdateGrabbed()
-    {
-        // El jugador MR controla la posición. Solo reproducimos animación de pataleo.
-        // Nada más: el XR Interaction Toolkit mueve el GameObject.
-    }
+    void UpdateGrabbed() { }
 
     void UpdateDead()
     {
-        // Se ejecuta una sola vez gracias al guard en ChangeState
-        // La animación de muerte ya se lanzó en OnEnter; aquí solo esperamos
-        // a que termine para destruir el objeto (o pooling).
         if (stateTimer > 2f)
         {
-            // Si es enemigo, aplicar recompensas a la colonia
-            if (data != null && antData == null)
-                //RewardSystem.Apply(data.rewardTags);
-
+            if (isEnemy)
+            {
+                // RewardSystem.Apply(data.rewardTags);
+            }
             Destroy(gameObject);
         }
     }
 
     // ───────────────────────────────────────────
-    // CAMBIO DE ESTADO — lógica de entrada/salida
+    // CAMBIO DE ESTADO
     // ───────────────────────────────────────────
 
     public void ChangeState(InsectState newState)
     {
         if (currentState == newState) return;
 
-        // ── Salida del estado actual ──
         switch (currentState)
         {
             case InsectState.Walking:
@@ -240,36 +220,34 @@ public class InsectAI : MonoBehaviour
         }
 
         currentState = newState;
-        stateTimer   = 0f;  // reset del timer en cada transición
+        stateTimer   = 0f;
 
-        // ── Entrada al nuevo estado ──
         switch (currentState)
         {
             case InsectState.Idle:
                 agent.isStopped = true;
-                anim?.SetTrigger("Idle");
+                //anim?.SetTrigger("Idle");
                 break;
             case InsectState.Walking:
                 agent.isStopped = false;
-                anim?.SetTrigger("Walk");
+                //anim?.SetTrigger("Walk");
                 break;
             case InsectState.Attacking:
                 agent.isStopped = false;
-                anim?.SetTrigger("Attack");
+                //anim?.SetTrigger("Attack");
                 break;
             case InsectState.Carrying:
                 agent.isStopped = false;
-                anim?.SetTrigger("Carry");
+                //anim?.SetTrigger("Carry");
                 break;
             case InsectState.Grabbed:
-                agent.enabled = false;           // NavMesh no lucha contra la mano MR
+                agent.enabled = false;
                 GetComponent<Rigidbody>().isKinematic = true;
-                anim?.SetTrigger("Struggle");
+                //anim?.SetTrigger("Struggle");
                 break;
             case InsectState.Dead:
                 agent.enabled = false;
-                anim?.SetTrigger("Die");
-                // Si llevaba algo, suéltalo
+                //anim?.SetTrigger("Die");
                 if (carriedItem != null)
                 {
                     carriedItem.transform.SetParent(null);
@@ -283,21 +261,25 @@ public class InsectAI : MonoBehaviour
     // HELPERS
     // ───────────────────────────────────────────
 
-    // Detecta el enemigo más cercano dentro del aggroRange del SO
     bool ScanForEnemy(out Transform enemy)
     {
         enemy = null;
+        float closest = Mathf.Infinity;
 
-        // Las obreras con fightWeight bajo no atacan solas
-        if (antData != null && antData.fightWeight < 0.3f) return false;
+        // Obreras con fightWeight bajo no atacan solas
+        if (!isEnemy && antData.fightWeight < 0.3f) return false;
 
         Collider[] hits = Physics.OverlapSphere(transform.position, data.aggroRange);
-        float closest = Mathf.Infinity;
 
         foreach (var hit in hits)
         {
             if (hit.transform == transform) continue;
-            if (!hit.CompareTag("Enemy") && !hit.CompareTag("Insect")) continue;
+
+            var otherAI = hit.GetComponent<InsectAI>();
+            if (otherAI == null || otherAI.currentState == InsectState.Dead) continue;
+
+            // Solo ataca a insectos del bando contrario
+            if (otherAI.isEnemy == isEnemy) continue;
 
             float d = Vector3.Distance(transform.position, hit.transform.position);
             if (d < closest) { closest = d; enemy = hit.transform; }
@@ -309,11 +291,10 @@ public class InsectAI : MonoBehaviour
     void DealDamage(Transform t)
     {
         var other = t.GetComponent<InsectAI>();
-        if (other == null) return;
+        if (other == null || other.currentState == InsectState.Dead) return;
         other.TakeDamage(data.damage);
     }
 
-    // Llámalo desde fuera cuando esta hormiga recibe daño
     public void TakeDamage(float amount)
     {
         currentHp -= amount;
@@ -338,7 +319,5 @@ public class InsectAI : MonoBehaviour
         return hit.position;
     }
 
-    // HP en runtime (no está en el SO porque cambia)
     float currentHp;
-    void Start() => currentHp = data != null ? data.hp : 100f;
 }

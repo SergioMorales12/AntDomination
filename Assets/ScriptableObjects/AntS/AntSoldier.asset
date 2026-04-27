@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cc210fec08dbd04cacb63d2d9608927, type: 3}
+  m_Name: AntSoldier
+  m_EditorClassIdentifier: Assembly-CSharp::AntDataSO
+  role: 0
+  hpFleeThreshold: 0.101
+  fightWeight: 1
+  forageWeight: 0
