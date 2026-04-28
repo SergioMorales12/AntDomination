@@ -15,7 +15,7 @@ MonoBehaviour:
   speed: 1.5
   aggroRange: 20
   attackRange: 1
-  hp: 100
+  hp: 200
   damage: 20
   attackCooldown: 1
   idleWaitTime: 2

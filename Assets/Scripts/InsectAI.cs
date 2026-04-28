@@ -166,7 +166,7 @@ public class InsectAI : MonoBehaviour
         }
         else
         {
-            Debug.Log($"{gameObject.name} ATACANDO a {target.name}! (Plantado en el sitio)");
+            //Debug.Log($"{gameObject.name} ATACANDO a {target.name}! (Plantado en el sitio)");
             if (!agent.isStopped) 
             {
                 agent.ResetPath();
