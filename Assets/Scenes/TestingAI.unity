@@ -692,7 +692,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1218824541
 Transform:
   m_ObjectHideFlags: 0
@@ -727,6 +727,7 @@ MonoBehaviour:
   currentState: 0
   anim: {fileID: 0}
   mouthPoint: {fileID: 1721604449}
+  isEnemy: 0
 --- !u!195 &1218824543
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1100,6 +1101,7 @@ MonoBehaviour:
   currentState: 0
   anim: {fileID: 0}
   mouthPoint: {fileID: 1441623898}
+  isEnemy: 0
 --- !u!195 &1983199334
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1320,6 +1322,7 @@ MonoBehaviour:
   currentState: 0
   anim: {fileID: 0}
   mouthPoint: {fileID: 887878883}
+  isEnemy: 1
 --- !u!195 &2026026892
 NavMeshAgent:
   m_ObjectHideFlags: 0

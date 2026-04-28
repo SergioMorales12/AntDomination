@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -17,7 +18,7 @@ public class InsectAI : MonoBehaviour
 {
     [Header("Datos")]
     public InsectDataSO data;
-    public AntDataSO antData;
+    public AntDataSO antData = null;
 
     [Header("Estado")]
     public InsectState currentState = InsectState.Idle;
@@ -35,13 +36,13 @@ public class InsectAI : MonoBehaviour
     static Transform nestTransform;
 
     // true si es enemigo (no tiene antData)
-    bool isEnemy => antData == null;
+    public bool isEnemy ;
 
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         anim  = GetComponent<Animator>();
-
+        
         if (nestTransform == null)
             nestTransform = GameObject.FindGameObjectWithTag("Nest")?.transform;
 
@@ -74,7 +75,9 @@ public class InsectAI : MonoBehaviour
     {
         if (ScanForEnemy(out Transform enemy))
         {
+            Debug.Log("Enemigo detectado, atacando");
             target = enemy;
+            agent.SetDestination(target.position);
             ChangeState(InsectState.Attacking);
             return;
         }
@@ -91,7 +94,7 @@ public class InsectAI : MonoBehaviour
         if (ScanForEnemy(out Transform enemy))
         {
             target = enemy;
-            agent.ResetPath();
+            //agent.SetDestination(target.position);
             ChangeState(InsectState.Attacking);
             return;
         }
@@ -138,6 +141,7 @@ public class InsectAI : MonoBehaviour
     {
         if (target == null || !target.gameObject.activeInHierarchy)
         {
+            Debug.Log("Target lost");
             ChangeState(InsectState.Idle);
             return;
         }
@@ -145,24 +149,35 @@ public class InsectAI : MonoBehaviour
         // Solo las hormigas aliadas huyen
         if (!isEnemy && GetHpPercent() < antData.hpFleeThreshold)
         {
+            Debug.Log("Huyendo por poca vida");
+            agent.isStopped = false;
             agent.SetDestination(nestTransform.position);
             ChangeState(InsectState.Walking);
             return;
         }
 
         float dist = Vector3.Distance(transform.position, target.position);
-
         if (dist > data.attackRange)
         {
+            //Debug.Log($"{gameObject.name} persiguiendo a {target.name}. Distancia: {dist}");
+            agent.isStopped = false;
             agent.SetDestination(target.position);
+            
         }
         else
         {
-            agent.ResetPath();
+            Debug.Log($"{gameObject.name} ATACANDO a {target.name}! (Plantado en el sitio)");
+            if (!agent.isStopped) 
+            {
+                agent.ResetPath();
+                agent.isStopped = true; // Nos plantamos firmes para atacar
+            }
+
             if (stateTimer > data.attackCooldown)
             {
                 stateTimer = 0f;
                 DealDamage(target);
+                // anim?.SetTrigger("Attack"); // ¡Descomenta esto cuando pongas la animación!
             }
         }
     }
@@ -234,6 +249,7 @@ public class InsectAI : MonoBehaviour
                 break;
             case InsectState.Attacking:
                 agent.isStopped = false;
+                //agent.ResetPath();
                 //anim?.SetTrigger("Attack");
                 break;
             case InsectState.Carrying:
@@ -266,25 +282,51 @@ public class InsectAI : MonoBehaviour
         enemy = null;
         float closest = Mathf.Infinity;
 
-        // Obreras con fightWeight bajo no atacan solas
-        if (!isEnemy && antData.fightWeight < 0.3f) return false;
-
-        Collider[] hits = Physics.OverlapSphere(transform.position, data.aggroRange);
-
-        foreach (var hit in hits)
+        if (data == null)
         {
-            if (hit.transform == transform) continue;
-
-            var otherAI = hit.GetComponent<InsectAI>();
-            if (otherAI == null || otherAI.currentState == InsectState.Dead) continue;
-
-            // Solo ataca a insectos del bando contrario
-            if (otherAI.isEnemy == isEnemy) continue;
-
-            float d = Vector3.Distance(transform.position, hit.transform.position);
-            if (d < closest) { closest = d; enemy = hit.transform; }
+            Debug.LogWarning($"¡Cuidado! A {gameObject.name} le falta asignar su InsectDataSO en el Inspector.");
+            return false;
         }
 
+        if (!isEnemy)
+        {
+            if (antData == null)
+            {
+                Debug.LogWarning($"¡Cuidado! A la hormiga aliada {gameObject.name} le falta asignar su AntDataSO en el Inspector.");
+                return false;
+            }
+
+            // Obreras con fightWeight bajo no atacan solas
+            if (antData.fightWeight < 0.3f) return false;
+        }
+        
+        Collider[] hits = Physics.OverlapSphere(transform.position, data.aggroRange);
+        foreach (var hit in hits)
+        {
+            // 1. Buscamos el script InsectAI en el objeto golpeado O en su padre
+            var otherAI = hit.GetComponentInParent<InsectAI>();
+
+            // 2. Si es una pared/suelo, o si es ÉL MISMO atacando a sus propios hijos, lo ignoramos
+            if (otherAI == null || otherAI == this) continue;
+
+            // 3. A partir de aquí, usamos otherAI.gameObject para mirar los Tags (el padre real)
+            bool targetIsEnemy = otherAI.CompareTag("Enemy");
+            bool targetIsAnt   = otherAI.CompareTag("Ant"); // Veo que añadiste esto en tu último código
+
+            // 4. Lógica de bandos
+            if (isEnemy && targetIsEnemy && !targetIsAnt) continue;    
+            if (!isEnemy && !targetIsEnemy) continue;  
+
+            if (otherAI.currentState == InsectState.Dead) continue;
+            
+            // 5. Calculamos la distancia contra el padre real, no contra el hijo
+            float d = Vector3.Distance(transform.position, otherAI.transform.position);
+            if (d < closest) 
+            { 
+                closest = d; 
+                enemy = otherAI.transform; // Guardamos al padre real como objetivo
+            }
+        }
         return enemy != null;
     }
 
@@ -298,8 +340,17 @@ public class InsectAI : MonoBehaviour
     public void TakeDamage(float amount)
     {
         currentHp -= amount;
+        if (!isEnemy && GetHpPercent() < antData.hpFleeThreshold)
+        {
+            Debug.Log("Huyendo por poca vida");
+            agent.isStopped = false;
+            agent.SetDestination(nestTransform.position);
+            ChangeState(InsectState.Walking);
+            return;
+        }
         if (currentHp <= 0f && currentState != InsectState.Dead)
             ChangeState(InsectState.Dead);
+
     }
 
     float GetHpPercent() => currentHp / data.hp;

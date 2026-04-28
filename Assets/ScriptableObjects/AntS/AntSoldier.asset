@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: AntSoldier
   m_EditorClassIdentifier: Assembly-CSharp::AntDataSO
   role: 0
-  hpFleeThreshold: 0.101
+  hpFleeThreshold: 0
   fightWeight: 1
   forageWeight: 0
