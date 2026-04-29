@@ -5,14 +5,14 @@ AntDomination es un innovador juego de estrategia en **Realidad Mixta (MR)** que
 
 ## Características Principales
 - **Integración con Realidad Mixta:** Utiliza el mapeado espacial para que las hormigas interactúen con muebles y obstáculos reales.
-- **Evolución de Unidades:** Compra y entrena insectos (mantis, escarabajos, arañas) para que suban de nivel y ganen habilidades.
-- **Estrategia de Conquista:** Envía expediciones a diferentes rincones de tu hogar para recolectar recursos y dominar territorios.
+- **Evolución de Unidades:** Compra y mata insectos (mantis, escarabajos, arañas) para que tus hormigas suban de nivel y ganen habilidades(Alomejor pongo que haya una probabilidad que el insecto forme parte de tu colonia).
+- **Estrategia de Conquista:** Envía expediciones a diferentes rincones de tu hogar o del mundo para recolectar recursos y dominar territorios.
 - **Sistema de Riesgo/Recompensa:** Gestiona las probabilidades de éxito en misiones críticas para obtener botines raros.
 
 ## Mecánicas de Juego
 1. **Gestión del Hormiguero:** Administra recursos como alimento y feromonas para mejorar tu base.
-2. **Mercado de Insectos:** Adquiere insectos poderosos que actúan como unidades de élite.
-3. **Misiones de Expedición:** Selecciona el número de soldados y líderes para misiones externas con cálculos de probabilidad dinámicos.
+¿¿??2. **Mercado de Insectos:** Adquiere insectos poderosos que actúan como unidades de élite.
+3. **Misiones de Expedición:** Selecciona el número de soldados para misiones externas con cálculos de probabilidad dinámicos.
 4. **Combate por la Supremacía:** Elimina colonias rivales hasta que solo quede tu especie.
 
 ## Requisitos Técnicos Sugeridos
