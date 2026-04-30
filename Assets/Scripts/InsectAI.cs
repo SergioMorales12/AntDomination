@@ -41,8 +41,9 @@ public class InsectAI : MonoBehaviour
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
-        anim  = GetComponent<Animator>();
-        
+        if (anim == null)
+            anim = GetComponent<Animator>();
+
         if (nestTransform == null)
             nestTransform = GameObject.FindGameObjectWithTag("Nest")?.transform;
 
@@ -241,20 +242,20 @@ public class InsectAI : MonoBehaviour
         {
             case InsectState.Idle:
                 agent.isStopped = true;
-                //anim?.SetTrigger("Idle");
+                anim?.SetTrigger("Idle");
                 break;
             case InsectState.Walking:
                 agent.isStopped = false;
-                //anim?.SetTrigger("Walk");
+                anim?.SetTrigger("Walking");
                 break;
             case InsectState.Attacking:
                 agent.isStopped = false;
                 //agent.ResetPath();
-                //anim?.SetTrigger("Attack");
+                anim?.SetTrigger("Interact");
                 break;
             case InsectState.Carrying:
                 agent.isStopped = false;
-                //anim?.SetTrigger("Carry");
+                anim?.SetTrigger("Interact");
                 break;
             case InsectState.Grabbed:
                 agent.enabled = false;
