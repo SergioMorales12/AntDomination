@@ -33,8 +33,7 @@ public class InsectAI : MonoBehaviour
     Transform target;
     GameObject carriedItem;
 
-    static Transform nestTransform;
-
+    Transform NestTransform => Nest.Instance != null ? Nest.Instance.transform : null;
     // true si es enemigo (no tiene antData)
     public bool isEnemy ;
 
@@ -43,9 +42,6 @@ public class InsectAI : MonoBehaviour
         agent = GetComponent<NavMeshAgent>();
         if (anim == null)
             anim = GetComponent<Animator>();
-
-        if (nestTransform == null)
-            nestTransform = GameObject.FindGameObjectWithTag("Nest")?.transform;
 
         if (data != null)
             agent.speed = data.speed;
@@ -62,7 +58,7 @@ public class InsectAI : MonoBehaviour
             case InsectState.Walking:     UpdateWalking();     break;
             case InsectState.Interacting: UpdateInteracting(); break;
             case InsectState.Attacking:   UpdateAttacking();   break;
-            case InsectState.Carrying:    UpdateCarrying();    break;
+            //case InsectState.Carrying:    UpdateCarrying();    break;
             case InsectState.Grabbed:     UpdateGrabbed();     break;
             case InsectState.Dead:        UpdateDead();        break;
         }
@@ -82,6 +78,17 @@ public class InsectAI : MonoBehaviour
             ChangeState(InsectState.Attacking);
             return;
         }
+        if (!isEnemy && antData.forageWeight > 0.5f)
+        {
+            GameObject food = FindNearbyFood(data.aggroRange);
+            if (food != null)
+            {
+                target = food.transform;
+                agent.SetDestination(target.position);
+                ChangeState(InsectState.Walking);
+                return;
+            }
+        }
 
         if (stateTimer > data.idleWaitTime)
         {
@@ -92,13 +99,13 @@ public class InsectAI : MonoBehaviour
 
     void UpdateWalking()
     {
-        if (ScanForEnemy(out Transform enemy))
+        /*if (ScanForEnemy(out Transform enemy))
         {
             target = enemy;
             //agent.SetDestination(target.position);
             ChangeState(InsectState.Attacking);
             return;
-        }
+        }*/
 
         // Si ya vamos hacia comida, comprobar si llegamos
         if (target != null && target.CompareTag("Food"))
@@ -117,17 +124,6 @@ public class InsectAI : MonoBehaviour
         // Llegó al destino de patrulla
         if (!agent.pathPending && agent.remainingDistance < 0.3f)
         {
-            if (!isEnemy && antData.forageWeight > 0.5f)
-            {
-                GameObject food = FindNearbyFood(data.aggroRange);
-                if (food != null)
-                {
-                    target = food.transform;
-                    agent.SetDestination(target.position);
-                    return;
-                }
-            }
-
             ChangeState(InsectState.Idle);
         }
     }
@@ -152,7 +148,7 @@ public class InsectAI : MonoBehaviour
         {
             Debug.Log("Huyendo por poca vida");
             agent.isStopped = false;
-            agent.SetDestination(nestTransform.position);
+            agent.SetDestination(NestTransform.position);
             ChangeState(InsectState.Walking);
             return;
         }
@@ -183,18 +179,19 @@ public class InsectAI : MonoBehaviour
         }
     }
 
-    void UpdateCarrying()
+    void Carrying()
     {
-        if (nestTransform == null || carriedItem == null)
+        if (NestTransform == null || carriedItem == null)
         {
             ChangeState(InsectState.Idle);
             return;
         }
 
-        agent.SetDestination(nestTransform.position);
+        agent.SetDestination(NestTransform.position);
 
-        if (Vector3.Distance(transform.position, nestTransform.position) < 1f)
+        if (Vector3.Distance(transform.position, NestTransform.position) < 1f)
         {
+            Nest.Instance.AddFood(1); // Añadimos comida al nido
             Destroy(carriedItem);
             carriedItem = null;
             ChangeState(InsectState.Idle);
@@ -209,8 +206,10 @@ public class InsectAI : MonoBehaviour
         {
             if (isEnemy)
             {
-                // RewardSystem.Apply(data.rewardTags);
+                Nest.Instance.AddGold(data.goldReward); // Recompensa por matar enemigo
+                Nest.Instance.GainXP(data.xpReward);  // XP por matar enemigo
             }
+            Nest.Instance.UnregisterAnt(this);
             Destroy(gameObject);
         }
     }
@@ -256,6 +255,7 @@ public class InsectAI : MonoBehaviour
             case InsectState.Carrying:
                 agent.isStopped = false;
                 anim?.SetTrigger("Interact");
+                Carrying();
                 break;
             case InsectState.Grabbed:
                 agent.enabled = false;
@@ -345,7 +345,7 @@ public class InsectAI : MonoBehaviour
         {
             Debug.Log("Huyendo por poca vida");
             agent.isStopped = false;
-            agent.SetDestination(nestTransform.position);
+            agent.SetDestination(NestTransform.position);
             ChangeState(InsectState.Walking);
             return;
         }

@@ -21,4 +21,5 @@ MonoBehaviour:
   idleWaitTime: 2
   interactTime: 1.5
   carryAmount: 1
-  rewardTags: []
+  goldReward: 5
+  xpReward: 5

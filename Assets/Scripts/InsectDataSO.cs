@@ -26,11 +26,7 @@ public class InsectDataSO : ScriptableObject
     public float carryAmount  = 1f;    // unidades de comida que deposita
 
     [Header("Recompensas al morir (solo enemigos)")]
-    public RewardTag[] rewardTags;
+    public int goldReward;
+    public int xpReward;
 }
 
-[System.Serializable]
-public struct RewardTag {
-    public RewardType type;   // Food, ResistanceBonus, ExpBonus, PoisonImmunity...
-    public float value;       // cantidad o duración
-}
