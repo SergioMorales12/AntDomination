@@ -58,7 +58,7 @@ public class InsectAI : MonoBehaviour
             case InsectState.Walking:     UpdateWalking();     break;
             case InsectState.Interacting: UpdateInteracting(); break;
             case InsectState.Attacking:   UpdateAttacking();   break;
-            //case InsectState.Carrying:    UpdateCarrying();    break;
+            case InsectState.Carrying:    UpdateCarrying();    break;
             case InsectState.Grabbed:     UpdateGrabbed();     break;
             case InsectState.Dead:        UpdateDead();        break;
         }
@@ -179,7 +179,7 @@ public class InsectAI : MonoBehaviour
         }
     }
 
-    void Carrying()
+    void UpdateCarrying()
     {
         if (NestTransform == null || carriedItem == null)
         {
@@ -255,7 +255,6 @@ public class InsectAI : MonoBehaviour
             case InsectState.Carrying:
                 agent.isStopped = false;
                 anim?.SetTrigger("Interact");
-                Carrying();
                 break;
             case InsectState.Grabbed:
                 agent.enabled = false;
